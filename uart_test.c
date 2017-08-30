@@ -9,7 +9,6 @@
 #include <linux/types.h>
 #include <assert.h>
 #include <fcntl.h>
-#include <termios.h>
 
 #include "config.h"
 
@@ -111,8 +110,7 @@ struct options_t parse_options(int argc, char** argv) {
 int main(int argc, char *argv[]) {
     options = parse_options(argc, argv);
 
-    printf("UART test \n");
-    printf("\n");
+    printf("UART test started\n");
 
     printf("    UART device: %s \n",      options.uart_options.device);
     printf("    UART speed:  %i \n",      options.uart_options.speed);

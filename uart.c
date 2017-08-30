@@ -1,12 +1,20 @@
-#include <termios.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <assert.h>
 #include <stdlib.h>
+/*
+ * Header files <asm/termbits.h> and <asm/ioctls.h>
+ * included instead of <termios.h> to get access
+ * to struct termios2 and avoid conflicts with GLIBC
+ * header file <termios.h> which defines struct termios only
+ */
+#include <asm/termbits.h>
+#include <asm/ioctls.h>
 
 #include "uart.h"
 
@@ -31,6 +39,8 @@
         printf(N_ERR format, ##__VA_ARGS__)
 
 struct uart_t* uart_init(char* dev, struct uart_options_t options) {
+    int ret = 0;
+
     struct uart_t *uart = uart_open(dev);
     if(uart == NULL) {
         strerr("UART init failed - exit \n");
@@ -45,8 +55,10 @@ struct uart_t* uart_init(char* dev, struct uart_options_t options) {
     uart->timeout_msec = options.timeout_msec;
     uart->bytes_limit = options.bytes_limit;
 
-    uart_set_interface_attribs(uart, uart->speed, 0); // set speed to 9,600 bps, 8n1 (no parity)
-    uart_set_blocking(uart, 1);                       // set blocking
+    ret = uart_set_interface_attribs(uart, uart->speed, uart->bits, uart->parity, uart->stop_bits);
+    if (ret != 0) {
+        return NULL;
+    }
 
     return uart;
 }
@@ -96,77 +108,101 @@ int uart_close(struct uart_t *instance) {
     return 0;
 }
 
-int uart_set_interface_attribs (struct uart_t *instance, int speed, int parity) {
+int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int bits, int parity, int stop_bits) {
         assert(instance != NULL);
 
-        struct termios tty;
-        memset (&tty, 0, sizeof tty);
+        struct termios2 tio2;
+        memset (&tio2, 0, sizeof(struct termios2));
 
-        if (tcgetattr (instance->fd, &tty) != 0)
+        if (ioctl(instance->fd, TCGETS2, &tio2) != 0)
         {
-                strerr("tcgetattr() error");
+                strerr("ioctl(TCGETS2) failed");
                 return -1;
         }
 
-        cfsetospeed (&tty, speed);
-        cfsetispeed (&tty, speed);
+        /* Clear standard baud rates flag */
+        tio2.c_cflag &= ~CBAUD;
+        tio2.c_cflag |= BOTHER;
 
-        tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
+        /* Set custom speed */
+        tio2.c_ispeed = speed;
+        tio2.c_ospeed = speed;
+
+        /* Set bits per byte */
+        switch (instance->bits) {
+            case 5:
+                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS5;
+                break;
+            case 6:
+                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS6;
+                break;
+            case 7:
+                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS7;
+                break;
+            case 8:
+                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS8;
+                break;
+            default:
+                errprintf("Bad param: bits: %d\n", instance->bits);
+                return -1;
+        }
+
+        /* Disable parity bits before parity parsing */
+        tio2.c_cflag &= ~(PARENB | PARODD);
+
+        /* Set parity mode */
+        switch (instance->parity) {
+            case UART_PARITY_NONE:
+                break;
+            case UART_PARITY_ODD:
+                tio2.c_cflag |= (PARENB | PARODD);
+                break;
+            case UART_PARITY_EVEN:
+                tio2.c_cflag |= PARENB;
+                break;
+            default:
+                errprintf("Bad param: parity: %d\n", instance->parity);
+                return -1;
+        }
+
+        /* Set stop bits */
+        switch (instance->stop_bits) {
+            case 1:
+                tio2.c_cflag &= ~CSTOPB;
+                break;
+            case 2:
+                tio2.c_cflag |= CSTOPB;
+                break;
+            default:
+                errprintf("Bad param: stop bits: %d\n", instance->stop_bits);
+                return -1;
+        }
+
         // disable IGNBRK for mismatched speed tests; otherwise receive break
         // as \000 chars
-        tty.c_iflag &= ~IGNBRK;         // disable break processing
-        tty.c_lflag = 0;                // no signaling chars, no echo,
+        tio2.c_iflag &= ~IGNBRK;         // disable break processing
+        tio2.c_lflag = 0;                // no signaling chars, no echo,
                                         // no canonical processing
-        tty.c_oflag = 0;                // no remapping, no delays
-        tty.c_cc[VMIN]  = 0;            // read doesn't block
-        tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
+        tio2.c_oflag = 0;                // no remapping, no delays
+        tio2.c_cc[VMIN]  = 1;            // blocking read
+        tio2.c_cc[VTIME] = 0;            // no timeout
 
-        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // enable xon/xoff ctrl
+        tio2.c_iflag &= ~(IXON | IXOFF | IXANY); // enable xon/xoff ctrl
+        tio2.c_cflag |= (CLOCAL | CREAD);// ignore modem controls, enable reading
+        tio2.c_cflag &= ~CRTSCTS;
 
-        tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
-                                        // enable reading
-        tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
-        tty.c_cflag |= parity;
-        tty.c_cflag &= ~CSTOPB;
-        tty.c_cflag &= ~CRTSCTS;
-
-        if (tcsetattr (instance->fd, TCSANOW, &tty) != 0)
+        if (ioctl(instance->fd, TCSETS2, &tio2) != 0)
         {
-                strerr("tcsetattr() error");
+                strerr("ioctl(TCSETS2) error");
                 return -1;
         }
 
         instance->speed = speed;
+        instance->bits = bits;
         instance->parity = parity;
+        instance->stop_bits = stop_bits;
 
         return 0;
-}
-
-void uart_set_blocking (struct uart_t *instance, int should_block) {
-        assert(instance != NULL);
-
-        struct termios tty;
-        memset (&tty, 0, sizeof tty);
-
-        if (tcgetattr (instance->fd, &tty) != 0)
-        {
-            dprintf("error %d from tggetattr\n", errno);
-            return;
-        }
-
-        tty.c_cc[VMIN]  = should_block ? 1 : 0;
-        tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
-
-        if (tcsetattr (instance->fd, TCSANOW, &tty) != 0)
-            dprintf("error %d setting term attributes\n", errno);
-
-        if (should_block) {
-            int flags = fcntl(instance->fd, F_GETFL, 0);
-            fcntl(instance->fd, F_SETFL, flags | ~O_NONBLOCK);
-        } else {
-            int flags = fcntl(instance->fd, F_GETFL, 0);
-            fcntl(instance->fd, F_SETFL, flags & O_NONBLOCK);
-        }
 }
 
 /*

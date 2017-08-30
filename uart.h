@@ -34,7 +34,7 @@ struct uart_t* uart_init(char* dev, struct uart_options_t options);
 struct uart_t* uart_open(const char* serial_device);
 int uart_close(struct uart_t *instance);
 
-int uart_set_interface_attribs (struct uart_t *instance, int speed, int parity);
+int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int bits, int parity, int stop_bits);
 void uart_set_blocking (struct uart_t *instance, int should_block);
 
 int uart_poll(struct uart_t *instance, int timeout_msec);

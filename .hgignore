@@ -7,8 +7,6 @@ syntax:glob
 *.orig
 *.bak
 
-./dispatcher
-./dispatcher_debug
-./dispatcher_debug_noprintf
-
-./dispatcher_test
+./uart_test
+./uart_test_debug
+./uart_test_debug_noprintf

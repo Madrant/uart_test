@@ -128,5 +128,23 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
+    /* Do work */
+    int ret = 0;
+
+    char buf[] = "test";
+    int bytes = sizeof(buf);
+
+    ret = uart_write(uart, buf, bytes);
+    if (ret == -1) {
+        printf("UART write failed\n");
+    }
+
+    if (ret != bytes) {
+        printf("Warning: Partial write: %d of %d\n", ret, bytes);
+    }
+
+    /* Close devices */
+    uart_close(uart);
+
     return 0;
 }

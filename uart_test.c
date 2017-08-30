@@ -131,16 +131,32 @@ int main(int argc, char *argv[]) {
     /* Do work */
     int ret = 0;
 
-    char buf[] = "test";
-    int bytes = sizeof(buf);
+    char out_buf[] = "test";
+    int out_bytes = sizeof(out_buf);
 
-    ret = uart_write(uart, buf, bytes);
+    printf("Performing test write:\n");
+    show_data(out_buf, out_bytes);
+
+    ret = uart_write(uart, out_buf, out_bytes);
     if (ret == -1) {
         printf("UART write failed\n");
     }
 
-    if (ret != bytes) {
-        printf("Warning: Partial write: %d of %d\n", ret, bytes);
+    if (ret != out_bytes) {
+        printf("Warning: Partial write: %d of %d\n", ret, out_bytes);
+    }
+
+    if (uart_poll(uart, 100 /* msec */) == 1) {
+        printf("Incoming data ready\n");
+
+        unsigned char byte = 0x00;
+
+        while (1) {
+            byte = uart_read_byte(uart);
+            printf("Byte: 0x%02x %d '%c'\n", byte, byte, byte);
+
+            uart_write(uart, &byte, sizeof(byte));
+        }
     }
 
     /* Close devices */

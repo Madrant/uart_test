@@ -1,0 +1,14 @@
+syntax:glob
+
+*.exe
+*.o
+*.ko
+*.log
+*.orig
+*.bak
+
+./dispatcher
+./dispatcher_debug
+./dispatcher_debug_noprintf
+
+./dispatcher_test

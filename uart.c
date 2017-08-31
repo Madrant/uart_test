@@ -4,9 +4,25 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
-#include <sys/ioctl.h>
 #include <assert.h>
 #include <stdlib.h>
+
+#ifdef __powerpc__
+/*
+ * On PowerPC there is only struct termios, which includes
+ * fields c_ispeed and c_ospeed, so we just includes <sys/ioctl.h>
+ * which internally includes <termios.h>
+ */
+#include <sys/ioctl.h>
+/*
+ * BOTHER constant defined in <asm/tembits.h> which conflicts
+ * with <termios.h> by redefining struct termios
+ * so we just define BOTHER constant manually
+ */
+#ifndef BOTHER
+#define BOTHER 00037
+#endif
+#else
 /*
  * Header files <asm/termbits.h> and <asm/ioctls.h>
  * included instead of <termios.h> to get access
@@ -15,6 +31,8 @@
  */
 #include <asm/termbits.h>
 #include <asm/ioctls.h>
+#include <sys/ioctl.h>
+#endif /* __powerpc__ */
 
 #include "uart.h"
 
@@ -111,36 +129,45 @@ int uart_close(struct uart_t *instance) {
 int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int bits, int parity, int stop_bits) {
         assert(instance != NULL);
 
-        struct termios2 tio2;
-        memset (&tio2, 0, sizeof(struct termios2));
+#ifdef __powerpc__
+#define IOCTL_GETS TCGETS
+#define IOCTL_SETS TCSETS
+        /* On PowerPC struct termios include fields c_ispeed and c_ospeed */
+        struct termios tty;
+#else
+#define IOCTL_GETS TCGETS2
+#define IOCTL_SETS TCSETS2
+        struct termios2 tty;
+#endif
+        memset (&tty, 0, sizeof(tty));
 
-        if (ioctl(instance->fd, TCGETS2, &tio2) != 0)
+        if (ioctl(instance->fd, IOCTL_GETS, &tty) != 0)
         {
                 strerr("ioctl(TCGETS2) failed");
                 return -1;
         }
 
         /* Clear standard baud rates flag */
-        tio2.c_cflag &= ~CBAUD;
-        tio2.c_cflag |= BOTHER;
+        tty.c_cflag &= ~CBAUD;
+        tty.c_cflag |= BOTHER;
 
         /* Set custom speed */
-        tio2.c_ispeed = speed;
-        tio2.c_ospeed = speed;
+        tty.c_ispeed = speed;
+        tty.c_ospeed = speed;
 
         /* Set bits per byte */
         switch (instance->bits) {
             case 5:
-                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS5;
+                tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS5;
                 break;
             case 6:
-                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS6;
+                tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS6;
                 break;
             case 7:
-                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS7;
+                tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS7;
                 break;
             case 8:
-                tio2.c_cflag = (tio2.c_cflag & ~CSIZE) | CS8;
+                tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
                 break;
             default:
                 errprintf("Bad param: bits: %d\n", instance->bits);
@@ -148,17 +175,17 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
         }
 
         /* Disable parity bits before parity parsing */
-        tio2.c_cflag &= ~(PARENB | PARODD);
+        tty.c_cflag &= ~(PARENB | PARODD);
 
         /* Set parity mode */
         switch (instance->parity) {
             case UART_PARITY_NONE:
                 break;
             case UART_PARITY_ODD:
-                tio2.c_cflag |= (PARENB | PARODD);
+                tty.c_cflag |= (PARENB | PARODD);
                 break;
             case UART_PARITY_EVEN:
-                tio2.c_cflag |= PARENB;
+                tty.c_cflag |= PARENB;
                 break;
             default:
                 errprintf("Bad param: parity: %d\n", instance->parity);
@@ -168,10 +195,10 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
         /* Set stop bits */
         switch (instance->stop_bits) {
             case 1:
-                tio2.c_cflag &= ~CSTOPB;
+                tty.c_cflag &= ~CSTOPB;
                 break;
             case 2:
-                tio2.c_cflag |= CSTOPB;
+                tty.c_cflag |= CSTOPB;
                 break;
             default:
                 errprintf("Bad param: stop bits: %d\n", instance->stop_bits);
@@ -180,18 +207,18 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
 
         // disable IGNBRK for mismatched speed tests; otherwise receive break
         // as \000 chars
-        tio2.c_iflag &= ~IGNBRK;         // disable break processing
-        tio2.c_lflag = 0;                // no signaling chars, no echo,
+        tty.c_iflag &= ~IGNBRK;         // disable break processing
+        tty.c_lflag = 0;                // no signaling chars, no echo,
                                         // no canonical processing
-        tio2.c_oflag = 0;                // no remapping, no delays
-        tio2.c_cc[VMIN]  = 1;            // blocking read
-        tio2.c_cc[VTIME] = 0;            // no timeout
+        tty.c_oflag = 0;                // no remapping, no delays
+        tty.c_cc[VMIN]  = 1;            // blocking read
+        tty.c_cc[VTIME] = 0;            // no timeout
 
-        tio2.c_iflag &= ~(IXON | IXOFF | IXANY); // enable xon/xoff ctrl
-        tio2.c_cflag |= (CLOCAL | CREAD);// ignore modem controls, enable reading
-        tio2.c_cflag &= ~CRTSCTS;
+        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // enable xon/xoff ctrl
+        tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls, enable reading
+        tty.c_cflag &= ~CRTSCTS;
 
-        if (ioctl(instance->fd, TCSETS2, &tio2) != 0)
+        if (ioctl(instance->fd, IOCTL_SETS, &tty) != 0)
         {
                 strerr("ioctl(TCSETS2) error");
                 return -1;

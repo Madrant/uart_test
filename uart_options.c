@@ -3,17 +3,20 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <linux/spi/spidev.h>
 
 #include "uart.h"
 
+static const char* uart_default_device = UART_DEFAULT_DEVICE;
+
 struct uart_options_t uart_default_options() {
     struct uart_options_t options;
 
-    options.device = UART_DEFAULT_DEVICE;
-
+    strncpy(options.device, uart_default_device, sizeof(options.device));
     options.speed = UART_DEFAULT_SPEED;
+
     options.bits = 8;
     options.parity = 0; /* None */
     options.stop_bits = 1;
@@ -55,7 +58,7 @@ struct uart_options_t uart_parse_options(int argc, char** argv) {
 
         switch (c) {
             case 'D':
-                options.device = optarg;
+                strncpy(options.device, optarg, sizeof(options.device));
                 break;
             case 's':
                 options.speed = atoi(optarg);

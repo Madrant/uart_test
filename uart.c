@@ -100,7 +100,7 @@ struct uart_t* uart_open(const char* serial_device) {
     assert(fd > 0);
 
     instance->fd = fd;
-    instance->dev = serial_device;
+    strncpy(instance->dev, serial_device, sizeof(instance->dev));
     instance->timeout_msec = UART_TIMEOUT_MSEC;
     instance->bytes_limit  = UART_BYTES_LIMIT;
 

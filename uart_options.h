@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 struct uart_options_t {
-    char *device;
+    char device[64];
 
     int speed;
     int parity;    /* 0 - none, 1 -odd, 2 - even */

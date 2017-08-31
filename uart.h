@@ -15,7 +15,7 @@
 
 struct uart_t {
     int fd;
-    const char* dev;
+    char dev[64];
 
     int speed;
     int parity;    /* 0 - none, 1 -odd, 2 - even */

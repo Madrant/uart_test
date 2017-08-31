@@ -224,6 +224,20 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
                 return -1;
         }
 
+        /* Check installed parameters */
+        if (ioctl(instance->fd, IOCTL_GETS, &tty) != 0)
+        {
+                strerr("ioctl(TCGETS2) failed");
+                return -1;
+        }
+
+        dprintf("Read back params:\n");
+        dprintf("Speed: %d %d\n", tty.c_ospeed, tty.c_ispeed);
+        dprintf("c_cflag: 0x%08x\n", tty.c_cflag);
+        dprintf("c_iflag: 0x%08x\n", tty.c_iflag);
+        dprintf("c_oflag: 0x%08x\n", tty.c_oflag);
+        dprintf("c_lflag: 0x%08x\n", tty.c_lflag);
+
         instance->speed = speed;
         instance->bits = bits;
         instance->parity = parity;

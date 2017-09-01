@@ -143,7 +143,7 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
 
         if (ioctl(instance->fd, IOCTL_GETS, &tty) != 0)
         {
-                strerr("ioctl(TCGETS2) failed");
+                strerr("ioctl(TCGETS) failed");
                 return -1;
         }
 
@@ -220,14 +220,14 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
 
         if (ioctl(instance->fd, IOCTL_SETS, &tty) != 0)
         {
-                strerr("ioctl(TCSETS2) error");
+                strerr("ioctl(TCSETS) error");
                 return -1;
         }
 
         /* Check installed parameters */
         if (ioctl(instance->fd, IOCTL_GETS, &tty) != 0)
         {
-                strerr("ioctl(TCGETS2) failed");
+                strerr("ioctl(TCGETS) failed");
                 return -1;
         }
 

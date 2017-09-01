@@ -146,17 +146,15 @@ int main(int argc, char *argv[]) {
         printf("Warning: Partial write: %d of %d\n", ret, out_bytes);
     }
 
-    if (uart_poll(uart, 100 /* msec */) == 1) {
-        printf("Incoming data ready\n");
+    printf("Wait for incoming data\n");
 
-        unsigned char byte = 0x00;
+    unsigned char byte = 0x00;
 
-        while (1) {
-            byte = uart_read_byte(uart);
-            printf("Byte: 0x%02x %d '%c'\n", byte, byte, byte);
+    while (1) {
+        byte = uart_read_byte(uart);
+        printf("Byte: 0x%02x %d '%c'\n", byte, byte, byte);
 
-            uart_write(uart, &byte, sizeof(byte));
-        }
+        uart_write(uart, &byte, sizeof(byte));
     }
 
     /* Close devices */

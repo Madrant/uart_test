@@ -50,10 +50,6 @@ struct udp_t *udp = NULL;
 #endif /* D_DEBUG */
 
 void print_usage(const char *prog) {
-    printf("Usage: %s [-u [ udp port] -m --mode [mode] \n", prog);
-    puts("  -m --mode work mode: 0 - OECA, 1 - BKB (default) \n"
-         "  -u UDP port to use \n"
-         "  -h print help\n");
 }
 
 struct options_t parse_options(int argc, char** argv) {

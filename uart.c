@@ -283,14 +283,39 @@ ssize_t uart_read(struct uart_t *instance, void *buf, size_t count) {
     assert(instance != NULL);
     assert(buf != NULL);
 
-    int ret = 0;
+    ssize_t bytes = 0;
+    size_t bytes_read = 0;
+    size_t bytes_total = count;
 
-    ret = read(instance->fd, buf, count);
-    if(ret == -1) {
-        strerr("uart_read() : read() error");
-    }
+    uint32_t tries_counter = 0;
 
-    return ret;
+    while(bytes_read != bytes_total)
+    {
+        dprintf("read(%i): ", count);
+
+        bytes = read(instance->fd, buf, count);
+        if(bytes == -1) {
+            strerr("uart_read() : read() error");
+            return bytes_read;
+        }
+
+        dprintf("%i bytes read\n", bytes);
+
+        buf += bytes;
+        bytes_read += bytes;
+        count -= bytes;
+
+        /* Non-blocking read exit */
+        if(tries_counter++ > 10000) {
+            errprintf("read() retry counter exceeds: only %i of %i bytes read\n"
+                      ,bytes_read, bytes_total);
+            return bytes_read;
+        }
+    } /* while */
+
+    assert(bytes_read <= bytes_total);
+
+    return bytes_read;
 }
 
 unsigned char uart_read_byte(struct uart_t *instance) {
@@ -306,6 +331,7 @@ unsigned char uart_read_byte(struct uart_t *instance) {
             strerr("uart_read_byte() : read() error");
         }
 
+        /* Non-blocking read exit */
         if(counter++ > 10000) {
             errprintf("read() retry counter exceeds - return 0x00 \n");
             return 0x00;

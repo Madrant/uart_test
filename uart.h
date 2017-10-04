@@ -39,6 +39,7 @@ void uart_set_blocking (struct uart_t *instance, int should_block);
 
 int uart_poll(struct uart_t *instance, int timeout_msec);
 
+ssize_t  uart_read(struct uart_t *instance, void *buf, size_t count);
 uint8_t  uart_read_byte(struct uart_t *instance);
 uint32_t uart_read_word(struct uart_t *instance);
 

@@ -24,6 +24,11 @@ struct packet_t create_packet(size_t packet_length) {
 unsigned char* generate_data(size_t length) {
     unsigned char* buffer = (unsigned char*)malloc(length);
 
+    if (buffer == NULL) {
+        printf("generate_data: malloc() failed\n");
+        exit(1);
+    }
+
     static int srandomized = 0;
 
     if(!srandomized) {
@@ -44,6 +49,11 @@ struct data_t packet_to_data(struct packet_t packet) {
     int header_size = sizeof(packet.number) + sizeof(packet.data_size) + sizeof(packet.crc32);
 
     data.ptr = (unsigned char*)malloc(header_size + packet.data_size);
+    if (data.ptr == NULL) {
+        printf("packet_to_data: malloc() failed\n");
+        exit(1);
+    }
+
     unsigned int offset = 0;
 
     memcpy((void*)(data.ptr + offset), (void*)&packet.number, sizeof(packet.number));
@@ -68,6 +78,11 @@ struct packet_t packet_from_data(struct data_t data) {
     int header_size = sizeof(packet.number) + sizeof(packet.data_size) + sizeof(packet.crc32);
 
     unsigned char* buffer = (unsigned char*)malloc(data.size - header_size);
+    if (buffer == NULL) {
+        printf("packet_from_data: malloc() failed\n");
+        exit(1);
+    }
+
     unsigned int offset = 0;
 
     memcpy((void*)&packet.number, (void*)(data.ptr + offset), sizeof(packet.number));
@@ -88,28 +103,28 @@ struct packet_t packet_from_data(struct data_t data) {
     return packet;
 }
 
-void show_packet_info(struct packet_t packet) {
-    printf("Packet: [Number: %.8i   Data size: %i   CRC32: 0x%.8x]\n", packet.number, packet.data_size, packet.crc32);
+void show_packet_info(struct packet_t *packet) {
+    printf("Packet: [Number: %.8i   Data size: %i   CRC32: 0x%.8x]\n", packet->number, packet->data_size, packet->crc32);
 }
 
-void show_packet_data(struct packet_t packet) {
+void show_packet_data(struct packet_t *packet) {
     printf("Packet data: [\n");
-    for(int i = 0; i < packet.data_size; ++i) {
+    for(int i = 0; i < packet->data_size; ++i) {
         if(i % 4 == 0) {
             printf("\n");
         }
-        printf("0x%.8x ", (unsigned int)packet.data[i]);
+        printf("0x%.8x ", (unsigned int)packet->data[i]);
     }
     printf(" ]\n");
 }
 
-void show_data_struct(struct data_t data) {
+void show_data_struct(struct data_t *data) {
     printf("Packet data: \n");
-    for(int i = 0; i < data.size; ++i) {
+    for(int i = 0; i < data->size; ++i) {
         if(i % 16 == 0) {
             printf("\n 0x%.8x: ", i);
         }
-        printf("0x%.2x ", *(data.ptr + i));
+        printf("0x%.2x ", *(data->ptr + i));
     }
     printf("\n");
 }

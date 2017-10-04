@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "config.h"
 
@@ -35,7 +36,10 @@ struct options_t {
 
 struct options_t options;
 
-struct udp_t *udp = NULL;
+static uint8_t test_in_action = 1;
+
+void register_signal_handler();
+void signal_handler(int signal);
 
 #define N_    "UART_TEST: "
 #define N_ERR "UART_TEST_ERROR: "
@@ -150,6 +154,130 @@ struct options_t parse_options(int argc, char** argv) {
     return options;
 }
 
+void send_packets(struct uart_t *uart, struct options_t *options) {
+    unsigned int packets_send = 0;
+    int bytes = 0;
+
+    assert(options != NULL);
+    assert(uart != NULL);
+    assert(uart->fd > 0);
+
+    /* Convert delay from msec to struct timespec */
+    struct timespec sleep_time;
+    if(options->send_delay_ms >= 1000) {
+        sleep_time.tv_sec  = options->send_delay_ms / 1000;
+        sleep_time.tv_nsec = 0;
+    } else {
+        sleep_time.tv_sec  = 0;
+        sleep_time.tv_nsec = options->send_delay_ms * 1000000L;
+    }
+
+    for(int i = 0; i < options->packets_num; ++i) {
+        struct packet_t packet = create_packet(options->packet_length);
+        struct data_t data = packet_to_data(packet);
+
+        show_packet_info(&packet);
+
+        bytes = uart_write(uart, (const void*)data.ptr, data.size);
+        if (bytes == -1) {
+            strerr("UART write failed\n");
+            exit(1);
+        }
+
+        if (bytes != data.size) {
+             printf("Warning: Partial write: %d of %d\n", bytes, data.size);
+        }
+
+        if(options->verbose == 1) {
+            printf("Packet dump: %i\n", bytes);
+            show_data_struct(&data);
+        }
+
+        packets_send++;
+        nanosleep(&sleep_time, NULL);
+
+        if(test_in_action == 0) {
+            break;
+        }
+    } /* for 0 to options->packets_num */
+
+    printf("Transfer done:\n\tPackets send: %i\n", packets_send);
+}
+
+void read_packets(struct uart_t *uart, struct options_t *options) {
+    unsigned int packets_received = 0;
+    unsigned int crc_errors       = 0;
+    unsigned int packets_lost     = 0;
+    unsigned int prev_packet_num  = 0;
+    unsigned int crc              = 0;
+
+    struct packet_t packet;
+    struct data_t data;
+
+    assert(options != NULL);
+    assert(uart != NULL);
+
+    data.ptr = (unsigned char*)malloc(options->packet_length);
+    data.size = options->packet_length;
+
+    if (data.ptr == NULL) {
+        printf("read_packets: malloc() failed\n");
+        exit(1);
+    }
+
+    assert(uart->fd > 0);
+
+    while(test_in_action != 0) {
+        int bytes = uart_read(uart, data.ptr, data.size);
+        if(bytes < 0) {
+            strerr("UART read() failed\n");
+            exit(1);
+        }
+
+        if(bytes == 0) {
+            /* No data yet */
+            continue;
+        }
+
+        if(bytes != options->packet_length) {
+            printf("Error: Bytes read: %i, packet size: %i\n", bytes, options->packet_length);
+            break;
+        }
+        data.size = bytes;
+
+        packet = packet_from_data(data);
+        show_packet_info(&packet);
+        packets_received++;
+
+        if(options->verbose == 1) {
+            printf("Packet dump: %i\n", bytes);
+            show_data_struct(&data);
+        }
+
+        if(prev_packet_num != 0 /*ignore first transfer*/ && packet.number > 1)
+        if(packet.number - prev_packet_num != 1) {
+            printf("Warning! Packet lost [%.8i ... %.8i]\n", prev_packet_num, packet.number);
+            packets_lost++;
+        }
+        prev_packet_num = packet.number;
+
+        crc = crc32(0x00, packet.data, packet.data_size);
+        if(packet.crc32 != crc) {
+            crc_errors++;
+            printf("Warning! wrong crc [0x%.8x] for packet: #%.8i crc32[0x%.8x]\n", crc, packet.number, packet.crc32);
+        } else {
+            printf("CRC32 [0x%.8x]: OK\n", packet.crc32);
+        }
+
+        free(packet.data);
+    }
+
+    printf("Test completed:\n");
+    printf("\tPackets received: %i\n", packets_received);
+    printf("\tCRC errors:       %i\n", crc_errors);
+    printf("\tPackets lost:     %i\n", packets_lost);
+}
+
 int main(int argc, char *argv[]) {
     options = parse_options(argc, argv);
 
@@ -169,6 +297,8 @@ int main(int argc, char *argv[]) {
     printf("    Direction:      %s \n", (options.direction == DIRECTION_SEND ? "Send" : "Receive"));
     printf("    Verbose mode:   %s \n", (options.verbose == 1 ? "Enabled" : "Disabled"));
 
+    register_signal_handler();
+
     /* Initialization */
     struct uart_t *uart = NULL;
 
@@ -179,36 +309,30 @@ int main(int argc, char *argv[]) {
     }
 
     /* Do work */
-    int ret = 0;
-
-    char out_buf[] = "test";
-    int out_bytes = sizeof(out_buf);
-
-    printf("Performing test write:\n");
-    show_data(out_buf, out_bytes);
-
-    ret = uart_write(uart, out_buf, out_bytes);
-    if (ret == -1) {
-        printf("UART write failed\n");
-    }
-
-    if (ret != out_bytes) {
-        printf("Warning: Partial write: %d of %d\n", ret, out_bytes);
-    }
-
-    printf("Wait for incoming data\n");
-
-    unsigned char byte = 0x00;
-
-    while (1) {
-        byte = uart_read_byte(uart);
-        printf("Byte: 0x%02x %d '%c'\n", byte, byte, byte);
-
-        uart_write(uart, &byte, sizeof(byte));
-    }
+    if(options.direction == DIRECTION_SEND)
+        send_packets(uart, &options);
+    else
+        read_packets(uart, &options);
 
     /* Close devices */
     uart_close(uart);
 
     return 0;
+}
+
+void register_signal_handler() {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof (sa));
+
+    sa.sa_handler = signal_handler;
+
+    sigfillset(&sa.sa_mask);
+    sigaction(SIGINT,  &sa, NULL);
+}
+
+void signal_handler(int signal) {
+    if(test_in_action)
+        test_in_action = 0;
+    else
+        exit(0);
 }

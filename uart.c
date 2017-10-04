@@ -279,6 +279,20 @@ int uart_poll(struct uart_t *instance, int timeout_msec) {
     return 1;
 }
 
+ssize_t uart_read(struct uart_t *instance, void *buf, size_t count) {
+    assert(instance != NULL);
+    assert(buf != NULL);
+
+    int ret = 0;
+
+    ret = read(instance->fd, buf, count);
+    if(ret == -1) {
+        strerr("uart_read() : read() error");
+    }
+
+    return ret;
+}
+
 unsigned char uart_read_byte(struct uart_t *instance) {
     assert(instance != NULL);
 

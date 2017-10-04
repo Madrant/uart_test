@@ -21,10 +21,10 @@ struct  data_t   packet_to_data(struct packet_t packet);
 struct  packet_t packet_from_data(struct data_t);
 
 uint8_t*  generate_data(size_t length);
-void      show_data_struct(struct data_t data);
+void      show_data_struct(struct data_t *data);
 
-void show_packet_info(struct packet_t packet);
-void show_packet_data(struct packet_t packet);
+void show_packet_info(struct packet_t *packet);
+void show_packet_data(struct packet_t *packet);
 
 extern uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 

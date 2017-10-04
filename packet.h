@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 
+#define PACKET_HEADER_SIZE 12 /* num + len + crc32 */
+
 struct packet_t {
     uint32_t number;
     uint32_t crc32;

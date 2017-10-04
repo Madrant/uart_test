@@ -68,7 +68,7 @@ void signal_handler(int signal);
 void print_usage(const char *prog) {
     printf("Common options: %s [-lndRvh] \n", prog);
     puts(
-    "  -l --packet_length <length> - set packet length      \n"
+    "  -l --packet_length <length> - set packet length (min 12 bytes for header) \n"
     "  -n --packets_num <num>      - set packets number     \n"
     "  -d --delay <msec>           - set send delay in msec \n"
     "  -R --receive                - receive packets only   \n"
@@ -120,6 +120,10 @@ struct options_t parse_options(int argc, char** argv) {
                 break;
             case 'l':
                 options.packet_length = atoi(optarg);
+                if (options.packet_length < PACKET_HEADER_SIZE) {
+                    printf("Wrong packet length: min is 12 bytes\n");
+                    exit(1);
+                }
                 break;
             case 'n':
                 options.packets_num = atoi(optarg);

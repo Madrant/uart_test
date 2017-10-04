@@ -28,13 +28,13 @@ struct uart_options_t uart_default_options() {
 }
 
 void uart_print_usage(const char *prog) {
-    printf("Usage: %s [-Dsbpth] \n", prog);
-    puts("  -D --device    <device to use> \n"
-         "  -s --speed     <UART baud rate>\n"
-         "  -b --bits      <bits>          \n"
-         "  -p --parity    <parity>        \n"
-         "  -t --stop_bits <stop bits>     \n"
-         "  -h --help      print help      \n");
+    printf("UART options: %s [-Dsbpth] \n", prog);
+    puts("  -D --device <device>       - set UART device to use  \n"
+         "  -s --speed <baud rate>     - set UART baud rate      \n"
+         "  -b --bits <bits>           - set UART bits (5,6,7,8) \n"
+         "  -p --parity <parity>       - set parity (0 - none, 1 - odd, 2 - even) \n"
+         "  -t --stop_bits <stop bits> - set stop bits (1, 2)    \n"
+         "  -h --help                  - print help \n");
 }
 
 struct uart_options_t uart_parse_options(int argc, char** argv) {

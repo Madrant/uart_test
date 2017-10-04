@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <linux/types.h>
+#include <inttypes.h>
 #include <assert.h>
 #include <fcntl.h>
 
@@ -15,10 +16,21 @@
 #include "uart.h"
 #include "uart_options.h"
 
+#include "packet.h"
+
 #include "utils.h"
+
+#define DIRECTION_SEND 1
+#define DIRECTION_RECV 0
 
 struct options_t {
     struct uart_options_t uart_options;
+
+    uint32_t packet_length;
+    uint32_t packets_num;
+    uint32_t send_delay_ms;
+    uint8_t  direction; /* 0 - receive, 1 - send */
+    uint8_t  verbose;
 };
 
 struct options_t options;
@@ -50,10 +62,25 @@ struct udp_t *udp = NULL;
 #endif /* D_DEBUG */
 
 void print_usage(const char *prog) {
+    printf("Common options: %s [-lndRvh] \n", prog);
+    puts(
+    "  -l --packet_length <length> - set packet length      \n"
+    "  -n --packets_num <num>      - set packets number     \n"
+    "  -d --delay <msec>           - set send delay in msec \n"
+    "  -R --receive                - receive packets only   \n"
+    "  -v --verbose                - enable verbose mode    \n"
+    "  -h --help                   - print help\n");
 }
 
 struct options_t parse_options(int argc, char** argv) {
     struct options_t options;
+
+    /* Default options */
+    options.packet_length = 32;
+    options.packets_num = 4;
+    options.send_delay_ms = 0;
+    options.direction = DIRECTION_SEND;
+    options.verbose = 0;
 
     /* disable getopt_long error messages */
     opterr = 0;
@@ -67,12 +94,17 @@ struct options_t parse_options(int argc, char** argv) {
 
     while (1) {
         static const struct option lopts[] = {
-            { "help",      0, 0, 'h' },
+            { "help",          0, 0, 'h' },
+            { "packet_length", 1, 0, 'l' },
+            { "packets_num",   1, 0, 'n' },
+            { "delay",         1, 0, 'd' },
+            { "receive",       1, 0, 'R' },
+            { "verbose",       1, 0, 'v' },
             { NULL,        0, 0, 0   },
         };
         int c;
 
-        c = getopt_long(argc, argv, "h", lopts, NULL);
+        c = getopt_long(argc, argv, "hl:n:d:Rv", lopts, NULL);
         if (c == -1)
             break;
 
@@ -81,6 +113,21 @@ struct options_t parse_options(int argc, char** argv) {
                 print_usage(argv[0]);
                 uart_print_usage(argv[0]);
                 exit(1);
+                break;
+            case 'l':
+                options.packet_length = atoi(optarg);
+                break;
+            case 'n':
+                options.packets_num = atoi(optarg);
+                break;
+            case 'd':
+                options.send_delay_ms = atoi(optarg);
+                break;
+            case 'R':
+                options.direction = DIRECTION_RECV;
+                break;
+            case 'v':
+                options.verbose = 1;
                 break;
             case '?':
                 break;
@@ -108,12 +155,19 @@ int main(int argc, char *argv[]) {
 
     printf("UART test started\n");
 
-    printf("    UART device: %s \n",      options.uart_options.device);
-    printf("    UART speed:  %i \n",      options.uart_options.speed);
-    printf("    UART bits:   %i \n",      options.uart_options.bits);
-    printf("    UART parity: %i \n",      options.uart_options.parity);
-    printf("    UART stop bits:  %i \n",  options.uart_options.stop_bits);
+    printf("UART options:\n");
+    printf("    UART device:    %s \n", options.uart_options.device);
+    printf("    UART speed:     %i \n", options.uart_options.speed);
+    printf("    UART bits:      %i \n", options.uart_options.bits);
+    printf("    UART parity:    %i \n", options.uart_options.parity);
+    printf("    UART stop bits: %i \n", options.uart_options.stop_bits);
 
+    printf("Common options:\n");
+    printf("    Packet length:  %i \n", options.packet_length);
+    printf("    Packets num:    %i \n", options.packets_num);
+    printf("    Send delay, ms: %i \n", options.send_delay_ms);
+    printf("    Direction:      %s \n", (options.direction == DIRECTION_SEND ? "Send" : "Receive"));
+    printf("    Verbose mode:   %s \n", (options.verbose == 1 ? "Enabled" : "Disabled"));
 
     /* Initialization */
     struct uart_t *uart = NULL;

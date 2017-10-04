@@ -8,7 +8,7 @@ struct uart_options_t {
     char device[64];
 
     int speed;
-    int parity;    /* 0 - none, 1 -odd, 2 - even */
+    int parity;    /* 0 - none, 1 - odd, 2 - even */
     int stop_bits; /* 1, 2 */
     int bits;      /* 5, 6, 7, 8 */
 

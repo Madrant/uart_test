@@ -239,6 +239,8 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
         dprintf("c_oflag: 0x%08x\n", tty.c_oflag);
         dprintf("c_lflag: 0x%08x\n", tty.c_lflag);
 
+        /* TODO: check params set */
+
         instance->speed = speed;
         instance->bits = bits;
         instance->parity = parity;
@@ -299,15 +301,11 @@ ssize_t uart_read(struct uart_t *instance, void *buf, size_t count) {
 
     while(bytes_read != bytes_total)
     {
-        dprintf("read(%i): ", count);
-
         bytes = read(instance->fd, buf, count);
         if(bytes == -1) {
             strerr("uart_read() : read() error");
             return bytes_read;
         }
-
-        dprintf("%i bytes read\n", bytes);
 
         buf += bytes;
         bytes_read += bytes;
@@ -415,8 +413,8 @@ void uart_print_icounter(struct uart_t *instance) {
     if(icount == NULL)
         return;
 
-    printf("UART '%s' icounters:", instance->dev);
-    printf("rx: %8i tx: %8i frames: %8i overrun: %8i parity: %8i brk: %8i buf_overrun: %8i\n",
+    printf("UART '%s' icounters:\n", instance->dev);
+    printf("rx: %i tx: %i ferr: %i overrun: %i perr: %i brk: %i buf_overrun: %i\n",
             icount->rx,  icount->tx, icount->frame, icount->overrun, icount->parity,
             icount->brk, icount->buf_overrun);
 

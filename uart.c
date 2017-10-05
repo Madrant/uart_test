@@ -75,6 +75,7 @@ struct uart_t* uart_init(char* dev, struct uart_options_t options) {
 
     ret = uart_set_interface_attribs(uart, uart->speed, uart->bits, uart->parity, uart->stop_bits);
     if (ret != 0) {
+        errprintf("uart_set_interface_attribs() failed\n");
         return NULL;
     }
 
@@ -220,15 +221,15 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
 
         if (ioctl(instance->fd, IOCTL_SETS, &tty) != 0)
         {
-                strerr("ioctl(TCSETS) error");
-                return -1;
+            strerr("ioctl(TCSETS) failed");
+            return -1;
         }
 
         /* Check installed parameters */
         if (ioctl(instance->fd, IOCTL_GETS, &tty) != 0)
         {
-                strerr("ioctl(TCGETS) failed");
-                return -1;
+            strerr("ioctl(TCGETS) failed");
+            return -1;
         }
 
         dprintf("Read back params:\n");
@@ -242,6 +243,13 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
         instance->bits = bits;
         instance->parity = parity;
         instance->stop_bits = stop_bits;
+
+        /* Set exclusive mode for tty */
+        if (ioctl(instance->fd, TIOCEXCL) != 0)
+        {
+            strerr("ioctl(TIOCEXCL) failed");
+            return -1;
+        }
 
         return 0;
 }

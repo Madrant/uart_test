@@ -384,3 +384,33 @@ int uart_write(struct uart_t *instance, const void* buf, size_t count) {
 
     return ret;
 }
+
+const struct serial_icounter_struct* uart_get_icounter(struct uart_t *instance) {
+    assert(instance != NULL);
+
+    static struct serial_icounter_struct icount;
+    int ret = 0;
+
+    ret = ioctl(instance->fd, TIOCGICOUNT, &icount);
+    if(ret != 0) {
+        strerr("ioctl(TIOCGICOUNT) failed");
+        return NULL;
+    }
+
+    return &icount;
+}
+
+void uart_print_icounter(struct uart_t *instance) {
+    assert(instance != NULL);
+
+    const struct serial_icounter_struct *icount = uart_get_icounter(instance);
+    if(icount == NULL)
+        return;
+
+    printf("UART '%s' icounters:", instance->dev);
+    printf("rx: %8i tx: %8i frames: %8i overrun: %8i parity: %8i brk: %8i buf_overrun: %8i\n",
+            icount->rx,  icount->tx, icount->frame, icount->overrun, icount->parity,
+            icount->brk, icount->buf_overrun);
+
+    return;
+}

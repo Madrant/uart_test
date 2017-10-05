@@ -312,11 +312,17 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
+    /* Print UART icounters */
+    uart_print_icounter(uart);
+
     /* Do work */
     if(options.direction == DIRECTION_SEND)
         send_packets(uart, &options);
     else
         read_packets(uart, &options);
+
+    /* Print UART icounters */
+    uart_print_icounter(uart);
 
     /* Close devices */
     uart_close(uart);

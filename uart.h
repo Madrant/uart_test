@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <linux/serial.h>
 
 #include "uart_options.h"
 
@@ -44,5 +45,9 @@ uint8_t  uart_read_byte(struct uart_t *instance);
 uint32_t uart_read_word(struct uart_t *instance);
 
 int uart_write(struct uart_t *instance, const void* buf, size_t count);
+
+/* Get icounter values using ioctl(TIOCGICOUNT) */
+const struct serial_icounter_struct* uart_get_icounter(struct uart_t *instance);
+void uart_print_icounter(struct uart_t* instance);
 
 #endif /* RS232_H */

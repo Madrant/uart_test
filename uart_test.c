@@ -30,6 +30,7 @@ struct options_t {
     uint32_t packet_length;
     uint32_t packets_num;
     uint32_t send_delay_ms;
+    uint32_t byte_delay_ms;
     uint8_t  direction; /* 0 - receive, 1 - send */
     uint8_t  verbose;
 };
@@ -71,6 +72,7 @@ void print_usage(const char *prog) {
     "  -l --packet_length <length> - set packet length (min 12 bytes for header) \n"
     "  -n --packets_num <num>      - set packets number     \n"
     "  -d --delay <msec>           - set send delay in msec \n"
+    "  -i --byte_delay <msec>      - set inter byte delay in msec \n"
     "  -R --receive                - receive packets only   \n"
     "  -v --verbose                - enable verbose mode    \n"
     "  -h --help                   - print help\n");
@@ -83,6 +85,7 @@ struct options_t parse_options(int argc, char** argv) {
     options.packet_length = 32;
     options.packets_num = 4;
     options.send_delay_ms = 0;
+    options.byte_delay_ms = 0;
     options.direction = DIRECTION_SEND;
     options.verbose = 0;
 
@@ -102,13 +105,14 @@ struct options_t parse_options(int argc, char** argv) {
             { "packet_length", 1, 0, 'l' },
             { "packets_num",   1, 0, 'n' },
             { "delay",         1, 0, 'd' },
+            { "byte_delay",    1, 0, 'b' },
             { "receive",       1, 0, 'R' },
             { "verbose",       1, 0, 'v' },
             { NULL,        0, 0, 0   },
         };
         int c;
 
-        c = getopt_long(argc, argv, "hl:n:d:Rv", lopts, NULL);
+        c = getopt_long(argc, argv, "hl:n:d:i:Rv", lopts, NULL);
         if (c == -1)
             break;
 
@@ -130,6 +134,9 @@ struct options_t parse_options(int argc, char** argv) {
                 break;
             case 'd':
                 options.send_delay_ms = atoi(optarg);
+                break;
+            case 'i':
+                options.byte_delay_ms = atoi(optarg);
                 break;
             case 'R':
                 options.direction = DIRECTION_RECV;
@@ -176,21 +183,45 @@ void send_packets(struct uart_t *uart, struct options_t *options) {
         sleep_time.tv_nsec = options->send_delay_ms * 1000000L;
     }
 
+    struct timespec byte_time;
+    if(options->send_delay_ms >= 1000) {
+        byte_time.tv_sec  = options->send_delay_ms / 1000;
+        byte_time.tv_nsec = 0;
+    } else {
+        byte_time.tv_sec  = 0;
+        byte_time.tv_nsec = options->send_delay_ms * 1000000L;
+    }
+
+    /* send data */
     for(int i = 0; i < options->packets_num; ++i) {
         struct packet_t packet = create_packet(options->packet_length);
         struct data_t data = packet_to_data(packet);
 
         show_packet_info(&packet);
 
-        bytes = uart_write(uart, (const void*)data.ptr, data.size);
-        if (bytes == -1) {
-            strerr("UART write failed\n");
-            exit(1);
-        }
+        if(options->byte_delay_ms == 0) {
+            bytes = uart_write(uart, (const void*)data.ptr, data.size);
+            if (bytes == -1) {
+                strerr("UART write failed\n");
+                exit(1);
+            }
 
-        if (bytes != data.size) {
-             printf("Warning: Partial write: %d of %d\n", bytes, data.size);
-        }
+            if (bytes != data.size) {
+                printf("Warning: Partial write: %d of %d\n", bytes, data.size);
+            }
+        } else { /* add inter byte delay */
+            while(bytes < data.size)
+            {
+                int ret = uart_write(uart, (const void*)data.ptr++, 1);
+                if (ret == -1) {
+                    strerr("UART write failed\n");
+                    exit(1);
+                }
+
+                bytes++;
+                nanosleep(&byte_time, NULL);
+            } /* while bytes < data.size */
+        } /* if options->byte_delay_ms */
 
         if(options->verbose == 1) {
             printf("Packet dump: %i\n", bytes);
@@ -298,6 +329,7 @@ int main(int argc, char *argv[]) {
     printf("    Packet length:  %i \n", options.packet_length);
     printf("    Packets num:    %i \n", options.packets_num);
     printf("    Send delay, ms: %i \n", options.send_delay_ms);
+    printf("    Byte delay, ms: %i \n", options.send_delay_ms);
     printf("    Direction:      %s \n", (options.direction == DIRECTION_SEND ? "Send" : "Receive"));
     printf("    Verbose mode:   %s \n", (options.verbose == 1 ? "Enabled" : "Disabled"));
 

@@ -203,23 +203,8 @@ void send_packets(struct uart_t *uart, struct options_t *options) {
     assert(uart->fd > 0);
 
     /* Convert delay from msec to struct timespec */
-    struct timespec sleep_time;
-    if(options->send_delay_ms >= 1000) {
-        sleep_time.tv_sec  = options->send_delay_ms / 1000;
-        sleep_time.tv_nsec = 0;
-    } else {
-        sleep_time.tv_sec  = 0;
-        sleep_time.tv_nsec = options->send_delay_ms * 1000000L;
-    }
-
-    struct timespec byte_time;
-    if(options->send_delay_ms >= 1000) {
-        byte_time.tv_sec  = options->send_delay_ms / 1000;
-        byte_time.tv_nsec = 0;
-    } else {
-        byte_time.tv_sec  = 0;
-        byte_time.tv_nsec = options->send_delay_ms * 1000000L;
-    }
+    struct timespec sleep_time = timespec_from_ms(options->send_delay_ms);
+    struct timespec byte_time  = timespec_from_ms(options->byte_delay_ms);
 
     /* send data */
     for(int i = 0; i < options->packets_num; ++i) {

@@ -28,3 +28,17 @@ struct timespec timespec_diff(struct timespec start, struct timespec stop) {
 
     return diff;
 }
+
+struct timespec timespec_from_ms(uint32_t ms) {
+    struct timespec ts;
+
+    if(ms >= 1000) {
+        ts.tv_sec  = ms / 1000;
+        ts.tv_nsec = 0;
+    } else {
+        ts.tv_sec  = 0;
+        ts.tv_nsec = ms * 1000000L;
+    }
+
+    return ts;
+}

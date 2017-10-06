@@ -241,7 +241,7 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
 
         /* Check parameters are set (TODO: check flags) */
         if(tty.c_ospeed != speed || tty.c_ispeed != speed) {
-            errprintf("Cannot set UART speed: %i - ioctl(IOCTL_SETS) left speed unchanged\n", speed);
+            errprintf("Cannot set UART speed: %u - ioctl(IOCTL_SETS) left speed unchanged\n", speed);
             exit(1);
         }
 
@@ -297,7 +297,6 @@ ssize_t uart_read(struct uart_t *instance, void *buf, size_t count) {
     assert(instance != NULL);
     assert(buf != NULL);
 
-    ssize_t bytes = 0;
     size_t bytes_read = 0;
     size_t bytes_total = count;
 
@@ -305,7 +304,7 @@ ssize_t uart_read(struct uart_t *instance, void *buf, size_t count) {
 
     while(bytes_read != bytes_total)
     {
-        bytes = read(instance->fd, buf, count);
+        ssize_t bytes = read(instance->fd, buf, count);
         if(bytes == -1) {
             strerr("uart_read() : read() error");
             return bytes_read;
@@ -317,7 +316,7 @@ ssize_t uart_read(struct uart_t *instance, void *buf, size_t count) {
 
         /* Non-blocking read exit */
         if(tries_counter++ > 10000) {
-            errprintf("read() retry counter exceeds: only %i of %i bytes read\n"
+            errprintf("read() retry counter exceeds: only %lu of %lu bytes read\n"
                       ,bytes_read, bytes_total);
             return bytes_read;
         }

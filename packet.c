@@ -9,15 +9,15 @@
 struct packet_t create_packet(size_t packet_length) {
     struct packet_t packet;
 
-    static int packet_number = 1;
-    static int header_size = sizeof(packet.number) + sizeof(packet.data_size) + sizeof(packet.crc32);
+    static unsigned int packet_number = 1;
+    static unsigned int header_size = sizeof(packet.number) + sizeof(packet.data_size) + sizeof(packet.crc32);
 
     assert(header_size == PACKET_HEADER_SIZE);
 
     packet.number = packet_number++;
-    packet.data_size = packet_length - header_size;
 
-    assert(packet.data_size >= 0);
+    assert((ssize_t)(packet_length - header_size) >= 0);
+    packet.data_size = packet_length - header_size;
 
     packet.data = generate_data(packet.data_size);
     packet.crc32  = crc32(0x00, packet.data, packet.data_size);
@@ -74,7 +74,6 @@ struct data_t packet_to_data(struct packet_t packet) {
 
     /* Copy data */
     memcpy((void*)(data.ptr + offset), (void*)packet.data, packet.data_size);
-    offset += packet.data_size;
 
     data.size = packet.data_size + header_size;
 
@@ -105,7 +104,6 @@ struct packet_t packet_from_data(struct data_t data) {
     offset += sizeof(packet.crc32);
 
     memcpy((void*)buffer, (void*)(data.ptr + offset), data.size - header_size);
-    offset += data.size - header_size;
 
     packet.data = buffer;
     packet.data_size = data.size - header_size;
@@ -114,7 +112,7 @@ struct packet_t packet_from_data(struct data_t data) {
 }
 
 void show_packet_info(struct packet_t *packet) {
-    printf("Packet: [Number: %.8i   Data size: %i   CRC32: 0x%.8x]\n", packet->number, packet->data_size, packet->crc32);
+    printf("Packet: [Number: %.8i   Data size: %lu   CRC32: 0x%.8x]\n", packet->number, packet->data_size, packet->crc32);
 }
 
 void show_packet_data(struct packet_t *packet) {

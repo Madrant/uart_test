@@ -239,7 +239,11 @@ int uart_set_interface_attribs (struct uart_t *instance, unsigned int speed, int
         dprintf("c_oflag: 0x%08x\n", tty.c_oflag);
         dprintf("c_lflag: 0x%08x\n", tty.c_lflag);
 
-        /* TODO: check params set */
+        /* Check parameters are set (TODO: check flags) */
+        if(tty.c_ospeed != speed || tty.c_ispeed != speed) {
+            errprintf("Cannot set UART speed: %i - ioctl(IOCTL_SETS) left speed unchanged\n", speed);
+            exit(1);
+        }
 
         instance->speed = speed;
         instance->bits = bits;

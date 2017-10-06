@@ -7,13 +7,13 @@
 struct uart_options_t {
     char device[64];
 
-    int speed;
-    int parity;    /* 0 - none, 1 - odd, 2 - even */
-    int stop_bits; /* 1, 2 */
-    int bits;      /* 5, 6, 7, 8 */
+    uint32_t speed;
+    uint8_t parity;    /* 0 - none, 1 - odd, 2 - even */
+    uint8_t stop_bits; /* 1, 2 */
+    uint8_t bits;      /* 5, 6, 7, 8 */
 
-    int timeout_msec;
-    int bytes_limit;
+    uint32_t timeout_msec;
+    uint32_t bytes_limit;
 };
 
 struct uart_options_t uart_default_options();

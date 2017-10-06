@@ -7,12 +7,23 @@
 
 #include "uart_options.h"
 
-#define UART_DEFAULT_DEVICE      "/dev/ttyS0"
-#define UART_DEFAULT_SPEED       (9600)
-
 #define UART_PARITY_NONE 0
 #define UART_PARITY_ODD  1
 #define UART_PARITY_EVEN 2
+
+#define UART_STOP_BITS_1 1
+#define UART_STOP_BITS_2 2
+
+#define UART_BITS_5 5
+#define UART_BITS_6 6
+#define UART_BITS_7 7
+#define UART_BITS_8 8
+
+#define UART_DEFAULT_DEVICE      "/dev/ttyS0"
+#define UART_DEFAULT_SPEED       (9600)
+#define UART_DEFAULT_PARITY    UART_PARITY_NONE
+#define UART_DEFAULT_STOP_BITS UART_STOP_BITS_1
+#define UART_DEFAULT_BITS      UART_BITS_8
 
 struct uart_t {
     int fd;

@@ -17,9 +17,9 @@ struct uart_options_t uart_default_options() {
     strncpy(options.device, uart_default_device, sizeof(options.device));
     options.speed = UART_DEFAULT_SPEED;
 
-    options.bits = 8;
-    options.parity = 0; /* None */
-    options.stop_bits = 1;
+    options.bits = UART_DEFAULT_BITS;
+    options.parity = UART_DEFAULT_PARITY;
+    options.stop_bits = UART_DEFAULT_STOP_BITS;
 
     options.timeout_msec = UART_TIMEOUT_MSEC;
     options.bytes_limit = UART_BYTES_LIMIT;
@@ -30,8 +30,8 @@ struct uart_options_t uart_default_options() {
 void uart_print_usage(const char *prog) {
     printf("UART options: %s [-Dsbpth] \n", prog);
     puts("  -D --device <device>       - set UART device to use  \n"
-         "  -s --speed <baud rate>     - set UART baud rate      \n"
-         "  -b --bits <bits>           - set UART bits (5,6,7,8) \n"
+         "  -s --speed <baud rate>     - set UART baud rate (any)\n"
+         "  -b --bits <bits>           - set UART bits (5, 6, 7, 8) \n"
          "  -p --parity <parity>       - set parity (0 - none, 1 - odd, 2 - even) \n"
          "  -t --stop_bits <stop bits> - set stop bits (1, 2)    \n"
          "  -h --help                  - print help \n");
@@ -82,6 +82,30 @@ struct uart_options_t uart_parse_options(int argc, char** argv) {
                 break;
         }
     } /* while */
+
+    /* check options */
+    if(options.bits != UART_BITS_5 &&
+       options.bits != UART_BITS_6 &&
+       options.bits != UART_BITS_7 &&
+       options.bits != UART_BITS_8) {
+        printf("UART: wrong bits selected: %i\n", options.bits);
+        uart_print_usage(argv[0]);
+        exit(1);
+    }
+    if(options.parity != UART_PARITY_NONE &&
+       options.parity != UART_PARITY_EVEN &&
+       options.parity != UART_PARITY_ODD) {
+        printf("UART: wrong parity selected: %i\n", options.parity);
+        uart_print_usage(argv[0]);
+        exit(1);
+    }
+
+    if(options.stop_bits != UART_STOP_BITS_1 &&
+       options.stop_bits != UART_STOP_BITS_2) {
+        printf("UART: wrong stop bits selected: %i\n", options.stop_bits);
+        uart_print_usage(argv[0]);
+        exit(1);
+    }
 
     return options;
 }

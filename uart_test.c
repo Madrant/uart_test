@@ -35,8 +35,7 @@ struct options_t {
     uint8_t  verbose;
 };
 
-struct options_t options;
-
+static struct options_t options;
 static uint8_t test_in_action = 1;
 
 void register_signal_handler();
@@ -67,15 +66,40 @@ void signal_handler(int signal);
 #endif /* D_DEBUG */
 
 void print_usage(const char *prog) {
-    printf("Common options: %s [-lndRvh] \n", prog);
+    printf("Packet options: %s [-lndRvh] \n", prog);
     puts(
     "  -l --packet_length <length> - set packet length (min 12 bytes for header) \n"
     "  -n --packets_num <num>      - set packets number     \n"
     "  -d --delay <msec>           - set send delay in msec \n"
     "  -i --byte_delay <msec>      - set inter byte delay in msec \n"
     "  -R --receive                - receive packets only   \n"
-    "  -v --verbose                - enable verbose mode    \n"
+    "  -v --verbose                - enable verbose mode (show packets body) \n"
     "  -h --help                   - print help\n");
+}
+
+void print_options(struct options_t *options) {
+    printf("UART options:\n");
+    printf("    UART device:    %s \n", options->uart_options.device);
+    printf("    UART speed:     %i \n", options->uart_options.speed);
+    printf("    UART bits:      %i \n", options->uart_options.bits);
+    printf("    UART parity:    %i \n", options->uart_options.parity);
+    printf("    UART stop bits: %i \n", options->uart_options.stop_bits);
+
+    printf("Packet options:\n");
+    printf("    Packet length:  %i \n", options->packet_length);
+    printf("    Packets num:    %i \n", options->packets_num);
+    printf("    Send delay, ms: %i \n", options->send_delay_ms);
+    printf("    Byte delay, ms: %i \n", options->send_delay_ms);
+    printf("    Direction:      %s \n", (options->direction == DIRECTION_SEND ? "Send" : "Receive"));
+    printf("    Verbose mode:   %s \n", (options->verbose == 1 ? "Enabled" : "Disabled"));
+}
+
+void print_help(char** argv, struct options_t *options) {
+    print_usage(argv[0]);
+    uart_print_usage(argv[0]);
+
+    printf("Default %s options:\n", argv[0]);
+    (void)print_options(options);
 }
 
 struct options_t parse_options(int argc, char** argv) {
@@ -99,6 +123,11 @@ struct options_t parse_options(int argc, char** argv) {
         argv_uart[i] = strdup(argv[i]);
     }
 
+    optind = 1; /* reset getopt_long index */
+    options.uart_options = uart_parse_options(argc, argv_uart);
+
+    optind = 1; /* reset getopt_long index for main options parsing */
+
     while (1) {
         static const struct option lopts[] = {
             { "help",          0, 0, 'h' },
@@ -117,15 +146,10 @@ struct options_t parse_options(int argc, char** argv) {
             break;
 
         switch (c) {
-            case 'h':
-                print_usage(argv[0]);
-                uart_print_usage(argv[0]);
-                exit(1);
-                break;
             case 'l':
                 options.packet_length = atoi(optarg);
                 if (options.packet_length < PACKET_HEADER_SIZE) {
-                    printf("Wrong packet length: min is 12 bytes\n");
+                    printf("Wrong packet length: min is %i bytes\n", PACKET_HEADER_SIZE);
                     exit(1);
                 }
                 break;
@@ -146,20 +170,25 @@ struct options_t parse_options(int argc, char** argv) {
                 break;
             case '?':
                 break;
-            default:
-                print_usage(argv[0]);
-                uart_print_usage(argv[0]);
+            case 'h':
+               (void)print_help(argv, &options);
                 exit(1);
                 break;
-        }
-
+            default:
+               (void)print_help(argv, &options);
+                exit(1);
+                break;
+        } /* switch */
     } /* while */
-
-    optind = 1; /* reset getopt_long index */
-    options.uart_options = uart_parse_options(argc, argv_uart);
 
     for(int i = 0; i < argc; i++) {
         free(argv_uart[i]);
+    }
+
+    /* print help if no cmdline params set */
+    if(argc < 2) {
+        (void)print_help(argv, &options);
+        exit(1);
     }
 
     return options;
@@ -318,20 +347,7 @@ int main(int argc, char *argv[]) {
 
     printf("UART test started\n");
 
-    printf("UART options:\n");
-    printf("    UART device:    %s \n", options.uart_options.device);
-    printf("    UART speed:     %i \n", options.uart_options.speed);
-    printf("    UART bits:      %i \n", options.uart_options.bits);
-    printf("    UART parity:    %i \n", options.uart_options.parity);
-    printf("    UART stop bits: %i \n", options.uart_options.stop_bits);
-
-    printf("Common options:\n");
-    printf("    Packet length:  %i \n", options.packet_length);
-    printf("    Packets num:    %i \n", options.packets_num);
-    printf("    Send delay, ms: %i \n", options.send_delay_ms);
-    printf("    Byte delay, ms: %i \n", options.send_delay_ms);
-    printf("    Direction:      %s \n", (options.direction == DIRECTION_SEND ? "Send" : "Receive"));
-    printf("    Verbose mode:   %s \n", (options.verbose == 1 ? "Enabled" : "Disabled"));
+    (void)print_options(&options);
 
     register_signal_handler();
 
